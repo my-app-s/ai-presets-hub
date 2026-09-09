@@ -1,0 +1,164 @@
+<!-- Copyright (C) 2026 my-app-s (M.R.E) -->
+<!-- Licensed under the GNU AGPLv3 -->
+ 
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Коллекция пресетов для ИИ</title>
+    <link rel="stylesheet" href="output.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 sm:p-8 flex justify-center">
+
+<div class="w-full max-w-xl flex flex-col min-h-[90vh]">
+    <div class="flex-grow">
+        <h1 class="text-2xl font-bold mb-6 tracking-tight">Коллекция пресетов для ИИ</h1>
+
+        <!-- Форма добавления -->
+        <form id="presetForm" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-8 shadow-lg flex flex-col gap-4">
+            <div>
+                <input type="text" id="presetTitle" placeholder="Название пресета" required
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+            </div>
+            <div>
+                <textarea id="presetText" rows="3" placeholder="Текст промта..." required
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors resize-y"></textarea>
+            </div>
+            <button type="submit"
+                class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-5 py-3 rounded-xl transition-colors shadow-sm cursor-pointer">
+                Добавить пресет
+            </button>
+        </form>
+
+        <!-- Список пресетов -->
+        <div id="presetsList" class="flex flex-col gap-4">
+            <!-- Карточки рендерятся динамически -->
+        </div>
+    </div>
+
+    <!-- Копирайт -->
+    <footer class="mt-12 pt-6 border-t border-slate-900 text-center text-slate-600 text-xs tracking-wide flex flex-col gap-1 items-center">
+        <div>© Copyright 2026 my-app-s(M.R.E) Content rights belong to the author.</div>
+        <div>
+            <a href="https://github.com/my-app-s/ai-presets-hub" target="_blank" rel="noopener noreferrer" class="hover:text-slate-400 underline transition-colors">
+                ai-presets-hub
+            </a>
+        </div>
+    </footer>
+</div>
+
+<script>
+    const STORAGE_KEY = 'ai_presets_collection_json';
+
+    async function getPresets() {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            return JSON.parse(savedData);
+        }
+
+        try {
+            const response = await fetch('presets.json');
+            if (!response.ok) throw new Error('Не удалось загрузить файл пресетов');
+            
+            const defaultPresets = await response.json();
+            savePresets(defaultPresets);
+            return defaultPresets;
+        } catch (error) {
+            console.error('Ошибка загрузки presets.json:', error);
+            return [];
+        }
+    }
+
+    function savePresets(presets) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
+    }
+
+    async function renderPresets() {
+        const listContainer = document.getElementById('presetsList');
+        const presets = await getPresets();
+
+        listContainer.innerHTML = '';
+
+        if (presets.length === 0) {
+            listContainer.innerHTML = '<div class="text-slate-500 text-center py-8">Пресеты пока не добавлены</div>';
+            return;
+        }
+
+        presets.forEach(preset => {
+            const card = document.createElement('div');
+            card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-3 shadow-md hover:border-slate-700 transition-colors';
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'font-semibold text-lg text-slate-100';
+            titleEl.textContent = preset.title;
+
+            const textEl = document.createElement('div');
+            textEl.className = 'text-slate-400 text-sm whitespace-pre-wrap break-words leading-relaxed';
+            textEl.textContent = preset.text;
+
+            const actionsEl = document.createElement('div');
+            actionsEl.className = 'flex justify-end gap-2 pt-2';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'bg-slate-800 hover:bg-red-950/50 hover:text-red-400 hover:border-red-900/50 border border-transparent text-slate-400 text-sm px-4 py-2 rounded-xl transition-colors cursor-pointer';
+            deleteBtn.textContent = 'Удалить';
+            deleteBtn.addEventListener('click', () => deletePreset(preset.id));
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm cursor-pointer';
+            copyBtn.textContent = 'В Gemini';
+            copyBtn.addEventListener('click', () => copyAndRedirect(preset.text));
+
+            actionsEl.appendChild(deleteBtn);
+            actionsEl.appendChild(copyBtn);
+
+            card.appendChild(titleEl);
+            card.appendChild(textEl);
+            card.appendChild(actionsEl);
+
+            listContainer.appendChild(card);
+        });
+    }
+
+    document.getElementById('presetForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const titleInput = document.getElementById('presetTitle');
+        const textInput = document.getElementById('presetText');
+
+        const newPreset = {
+            id: Date.now(),
+            title: titleInput.value.trim(),
+            text: textInput.value.trim()
+        };
+
+        const presets = await getPresets();
+        presets.unshift(newPreset);
+        savePresets(presets);
+
+        titleInput.value = '';
+        textInput.value = '';
+        renderPresets();
+    });
+
+    async function deletePreset(id) {
+        let presets = await getPresets();
+        presets = presets.filter(p => p.id !== id);
+        savePresets(presets);
+        renderPresets();
+    }
+
+    function copyAndRedirect(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            window.open('https://gemini.google.com/', '_blank');
+        }).catch(err => {
+            console.error('Ошибка копирования:', err);
+            alert('Не удалось скопировать текст');
+        });
+    }
+
+    renderPresets();
+</script>
+
+</body>
+</html>
